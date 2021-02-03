@@ -31,6 +31,9 @@ public class QuerydslBasicTest {
 
     @BeforeEach
     public void before(){
+
+        queryFactory = new JPAQueryFactory(em);
+
         Team teamA = new Team("teamA");
         Team teamB = new Team("teamB");
 
@@ -81,7 +84,6 @@ public class QuerydslBasicTest {
 
     @Test
     public void search(){
-        queryFactory = new JPAQueryFactory(em);
 
         Member findMember = queryFactory
                 .selectFrom(member)
@@ -95,7 +97,6 @@ public class QuerydslBasicTest {
 
     @Test
     public void searchAndParam(){
-        queryFactory = new JPAQueryFactory(em);
 
         Member findMember = queryFactory
                 .selectFrom(member)
@@ -110,6 +111,7 @@ public class QuerydslBasicTest {
 
     @Test
     public void resultFetch(){
+
         List<Member> fetch = queryFactory
                 .selectFrom(member)
                 .fetch();
@@ -132,6 +134,62 @@ public class QuerydslBasicTest {
 
     }
 
+    /**
+     * 1 나이 내림차순
+     * 2 이름 올림차순
+     * 2에서 이름이 없으면 마지막에 출력
+     */
+    @Test
+    public void sort(){
+
+        em.persist(new Member(null, 100));
+        em.persist(new Member("member5", 100));
+        em.persist(new Member("member6", 100));
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.eq(100))
+                .orderBy(member.age.desc(), member.username.asc().nullsLast())
+                .fetch();
+
+        Member member5 = result.get(0);
+        Member member6 = result.get(1);
+        Member memberNull = result.get(2);
 
 
+        assertThat(member5.getUsername()).isEqualTo("member5");
+        assertThat(member6.getUsername()).isEqualTo("member6");
+        assertThat(memberNull.getUsername()).isNull();
+
+    }
+
+    @Test
+    public void paging1(){
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .orderBy(member.username.desc())
+                .offset(1)
+                .limit(2)
+                .fetch();
+
+        assertThat(result.size()).isEqualTo(2);
+    }
+
+
+    @Test
+    public void paging2(){
+
+        QueryResults<Member> memberQueryResults = queryFactory
+                .selectFrom(member)
+                .orderBy(member.username.desc())
+                .offset(1)
+                .limit(2)
+                .fetchResults();
+
+        assertThat(memberQueryResults.getTotal()).isEqualTo(4);
+        assertThat(memberQueryResults.getLimit()).isEqualTo(2);
+        assertThat(memberQueryResults.getOffset()).isEqualTo(1);
+        assertThat(memberQueryResults.getResults().size()).isEqualTo(2);
+    }
 }
